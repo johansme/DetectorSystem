@@ -78,23 +78,30 @@ class ClassifierNetwork:
         return con
 
     def get_lstm_cell(self, layer_size):
-        if FLAGS.bidirectional:
-            cell = tf.contrib.rnn.BidirectionalGridLSTMCell(layer_size, activation=tf.nn.relu)
-        else:
-            cell = tf.contrib.rnn.GridLSTMCell(layer_size, activation=tf.nn.relu)
+        cell = tf.contrib.rnn.LSTMCell(layer_size, activation=tf.nn.relu)
         if FLAGS.training and self.dropout_keep_prob < 1.0:
             cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout_keep_prob)
         return cell
 
     def setup_lstm(self, lstm_input, n_layers, layer_size):
-        cells = tf.contrib.rnn.MultiRNNCell(self.get_lstm_cell(layer_size) for _ in range(n_layers))
-
-        with tf.variable_scope('lstm'):
-            output, state = tf.nn.dynamic_rnn(
-                cells,
-                lstm_input,
-                dtype=tf.float32,
-                sequence_length=seq_len(lstm_input))
+        if FLAGS.bidirectional:
+            with tf.variable_scope('lstm'):
+                output, fw_state, bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
+                    [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
+                    [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
+                    lstm_input,
+                    dtype=tf.float32,
+                    sequence_length=seq_len(lstm_input)
+                )
+                state = (fw_state, bw_state)
+        else:
+            cells = tf.contrib.rnn.MultiRNNCell([self.get_lstm_cell(layer_size) for _ in range(n_layers)])
+            with tf.variable_scope('lstm'):
+                output, state = tf.nn.dynamic_rnn(
+                    cells,
+                    lstm_input,
+                    dtype=tf.float32,
+                    sequence_length=seq_len(lstm_input))
         return output, state
 
     def setup_dense_layers(self):
