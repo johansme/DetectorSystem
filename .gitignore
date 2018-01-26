@@ -103,3 +103,4 @@ ENV/
 /Data/*.txt
 /Data/*.csv
 /Data/Word2vec/*
+.idea/
