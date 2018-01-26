@@ -35,6 +35,8 @@ class ClassifierNetwork:
         self.setup_network()
         self.setup_training()
 
+        self.current_sess = self.initialise_session()
+
     def setup_network(self):
         tf.reset_default_graph()
         self.char_input = tf.placeholder(tf.int8, shape=[self.batch_size, None, self.char_dim], name='Char_input')
@@ -100,6 +102,12 @@ class ClassifierNetwork:
 
         output = tf.layers.dense(dense, self.output_size, name='unmodified_output')
         return output
+
+    def initialise_session(self):
+        init_op = tf.initialize_all_variables()
+        sess = tf.Session()
+        sess.run(init_op)
+        return sess
 
 
 def last_relevant_from_lstm(output, length):

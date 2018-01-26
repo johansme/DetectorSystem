@@ -100,4 +100,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-.txt
+/Data/*.txt
+/Data/*.csv
+/Data/Word2vec/*
