@@ -9,11 +9,11 @@ flags.DEFINE_boolean('training', True, 'Tells if training is to take place')
 
 FLAGS = flags.FLAGS
 
-
+# TODO Add regularisation of nodes, try LR instead of dense layers (binary)?
 class ClassifierNetwork:
 
     def __init__(self, batch_size, n_gram_len, num_filters, num_char_lstm_layers, word_lstm_layer_size,
-                 num_word_lstm_layers, dense_layer_size, learning_rate=.01, bidirectional=False, dropout_keep_prob=1.0):
+                 num_word_lstm_layers, dense_layer_sizes, learning_rate=.01, bidirectional=False, dropout_keep_prob=1.0):
         self.char_dim = 30
         self.embedding_dim = 300
         self.output_size = 3
@@ -26,7 +26,7 @@ class ClassifierNetwork:
         self.word_lstm_layer_size = word_lstm_layer_size
         self.num_word_lstm_layers = num_word_lstm_layers
 
-        self.dense_layer_size = dense_layer_size
+        self.dense_layer_sizes = dense_layer_sizes
 
         self.bidirectional = bidirectional
         self.dropout_keep_prob = dropout_keep_prob
@@ -105,9 +105,10 @@ class ClassifierNetwork:
         return output, state
 
     def setup_dense_layers(self):
-        dense = tf.layers.dense(self.fc_input, self.dense_layer_size, activation=tf.nn.relu)
-
-        output = tf.layers.dense(dense, self.output_size, name='unmodified_output')
+        state = self.fc_input
+        for i in range(len(self.dense_layer_sizes)):
+            state = tf.layers.dense(state, self.dense_layer_sizes[i], activation=tf.nn.relu)
+        output = tf.layers.dense(state, self.output_size, name='unmodified_output')  # TODO Should there be activation?
         return output
 
     def initialise_session(self):
