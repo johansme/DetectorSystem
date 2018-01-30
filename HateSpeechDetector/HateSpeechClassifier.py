@@ -18,7 +18,7 @@ class ClassifierNetwork:
         self.embedding_dim = 300
         self.output_size = 3
         self.batch_size = batch_size
-        self.n_gram_length = n_gram_len
+        self.filter_lengths = n_gram_len
         self.filters_per_layer = num_filters
         self.num_con_layers = len(self.filters_per_layer)
         self.num_char_lstm_layers = num_char_lstm_layers
@@ -64,16 +64,22 @@ class ClassifierNetwork:
         self.optimiser = tf.train.AdamOptimizer(learning_rate=self.learning_rate)  # TODO Fill in hyperparameters
         self.training_op = self.optimiser.minimize(self.loss, global_step=tf.train.get_global_step(), name='train_op')
 
-    def generate_cnn_layer(self, layer_input, num_filters, kernel_len, name='conv'):
+    def generate_cnn_layer(self, layer_input, num_filters, kernel_len, padding='valid', name='conv'):
         with tf.variable_scope(name, reuse=True):
-            con = tf.layers.conv1d(layer_input, num_filters, kernel_len, activation=tf.nn.relu, name=name)
+            con = tf.layers.conv1d(layer_input, num_filters, kernel_len, padding=padding,
+                                   activation=tf.nn.relu, name=name)
         return con
 
     def setup_cnn(self):
         self.convolutions = []
         con = self.char_input
         for i in range(len(self.filters_per_layer)):
-            con = self.generate_cnn_layer(con, self.filters_per_layer[i], self.n_gram_length, 'conv{}'.format(i+1))
+            if i == 0:
+                padding = 'same'
+            else:
+                padding = 'valid'
+            con = self.generate_cnn_layer(con, self.filters_per_layer[i], self.filter_lengths[i],
+                                          padding=padding, name='conv{}'.format(i+1))
             self.convolutions.append(con)
         return con
 
