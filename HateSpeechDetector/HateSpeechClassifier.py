@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 import NetworkConfig
 
 
@@ -13,10 +12,14 @@ FLAGS = flags.FLAGS
 # TODO Add regularisation of nodes, try LR instead of dense layers (binary)?
 class ClassifierNetwork:
 
-    def __init__(self, config_name, num_char_lstm_layers, word_lstm_layer_size, num_word_lstm_layers,
-                 dense_layer_sizes, learning_rate=.01, bidirectional=False, dropout_keep_prob=1.0):
+    def __init__(self, config_name):
         self.config = NetworkConfig.NetworkConfig()
         self.config.read_config_from_file(config_name)
+
+        self.bidirectional = self.config.bidirectional
+        self.dropout_keep_prob = self.config.dropout_keep_prob
+        self.learning_rate = self.config.learning_rate
+
         self.char_dim = 30
         self.embedding_dim = 300
         self.output_size = 3
@@ -24,23 +27,22 @@ class ClassifierNetwork:
         self.filter_lengths = self.config.conv_filter_lengths
         self.filters_per_layer = self.config.conv_filters_per_layer
         self.num_con_layers = len(self.filters_per_layer)
-        self.num_char_lstm_layers = num_char_lstm_layers
+        self.num_char_lstm_layers = self.config.num_char_lstm_layers
 
-        self.word_lstm_layer_size = word_lstm_layer_size
-        self.num_word_lstm_layers = num_word_lstm_layers
+        self.word_lstm_layer_size = self.config.word_lstm_layer_size
+        self.num_word_lstm_layers = self.config.num_word_lstm_layers
 
-        self.dense_layer_sizes = dense_layer_sizes
+        self.dense_layer_sizes = self.config.dense_layer_sizes
 
-        self.bidirectional = bidirectional
-        self.dropout_keep_prob = dropout_keep_prob
-        self.learning_rate = learning_rate
+        self.error_history = []
+        self.global_training_step = 0
 
         self.saver = tf.train.Saver()
 
         self.setup_network()
         self.setup_training()
 
-        self.current_sess = self.initialise_session()
+        self.current_sess = None
 
     def setup_network(self):
         tf.reset_default_graph()
@@ -50,7 +52,6 @@ class ClassifierNetwork:
 
         self.target = tf.placeholder(tf.int8, shape=[None, self.output_size], name='Target')
 
-        # TODO fix padding to equalise length of sentences in mini_batch
         conv_output = self.setup_cnn()
         char_lengths = seq_len(conv_output)
         char_output, char_lstm_state = self.setup_lstm(conv_output, self.num_char_lstm_layers,
@@ -130,10 +131,27 @@ class ClassifierNetwork:
         init_op = tf.initialize_all_variables()
         sess = tf.Session()
         sess.run(init_op)
-        return sess
+        self.current_sess = sess
 
     def initialise_session_ex_vars(self):
-        return tf.Session()
+        self.current_sess = tf.Session()
+
+    def do_training(self, training_data, epochs):
+        if self.current_sess is None:
+            self.initialise_session()
+        sess = self.current_sess
+        for i in range(epochs):
+            step = self.global_training_step + i
+            error = 0
+            for batch in training_data:
+                char_input = [c[0] for c in batch]
+                word_input = [c[1] for c in batch]
+                targets = [c[2] for c in batch]
+                feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
+                _, loss = sess.run([self.training_op, self.loss], feed_dict=feeder)
+                error += loss
+            self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
+        self.global_training_step += epochs
 
     def save_model(self, sess, filename):
         save_path = self.saver.save(sess, 'temp/' + filename + '.ckpt')
