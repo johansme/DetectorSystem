@@ -1,5 +1,6 @@
 import tensorflow as tf
 import NetworkConfig
+import numpy as np
 
 
 flags = tf.flags
@@ -35,6 +36,7 @@ class ClassifierNetwork:
         self.dense_layer_sizes = self.config.dense_layer_sizes
 
         self.error_history = []
+        self.validation_history = []
         self.global_training_step = 0
 
         self.saver = tf.train.Saver()
@@ -94,7 +96,7 @@ class ClassifierNetwork:
         return con
 
     def get_lstm_cell(self, layer_size):
-        cell = tf.contrib.rnn.LSTMCell(layer_size, activation=tf.nn.relu)
+        cell = tf.contrib.rnn.LSTMCell(layer_size, activation=tf.nn.tanh)
         if FLAGS.training and self.dropout_keep_prob < 1.0:
             cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout_keep_prob)
         return cell
@@ -152,6 +154,35 @@ class ClassifierNetwork:
                 error += loss
             self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
         self.global_training_step += epochs
+
+    def do_validation(self, validation_data, step):
+        if self.current_sess is None:
+            self.initialise_session()
+        error = 0
+        for batch in validation_data:
+            char_input = [c[0] for c in batch]
+            word_input = [c[1] for c in batch]
+            targets = [c[2] for c in batch]
+            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
+            loss = self.current_sess.run([self.loss], feed_dict=feeder)
+            error += loss
+        self.validation_history.append((step, error/len(validation_data)))
+
+    def do_testing(self, test_data):
+        if self.current_sess is None:
+            self.initialise_session()
+        confusion = np.zeros([self.output_size, self.output_size])
+        for batch in test_data:
+            char_input = [c[0] for c in batch]
+            word_input = [c[1] for c in batch]
+            targets = [c[2] for c in batch]
+            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
+            predictions = self.current_sess.run([self.predictions], feed_dict=feeder)
+            classes = predictions['classes']
+            targets = tf.argmax(targets, axis=1)
+            for i in range(len(targets)):
+                confusion[classes[i]][targets[i]] += 1
+        print('Confusion matrix of the test data:\n{}'.format(confusion))
 
     def save_model(self, sess, filename):
         save_path = self.saver.save(sess, 'temp/' + filename + '.ckpt')
