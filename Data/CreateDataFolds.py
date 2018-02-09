@@ -39,7 +39,7 @@ def read_tweets_from_file(filename, label):
     return tweets
 
 
-def write_tweets_to_file(filename, tweets):  # TODO Add label
+def write_tweets_to_file(filename, tweets):
     with open(filename, 'w', encoding='utf-8') as f:
         try:
             for tweet in tweets:
