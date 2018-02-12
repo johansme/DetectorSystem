@@ -21,6 +21,7 @@ class NetworkConfig:
                 self.dense_layer_sizes = []
                 for i in range(num_dense_layers):
                     self.dense_layer_sizes.append(int(f.readline()))
+                self.patience = int(f.readline().split()[1])
         except IOError:
             print('No such config file: {}'.format(filename))
 
@@ -42,6 +43,7 @@ class NetworkConfig:
                 f.write('{}\n'.format(len(self.dense_layer_sizes)))
                 for layer in self.dense_layer_sizes:
                     f.write('{}\n'.format(layer))
+                f.write('patience: {}'.format(self.patience))
         except IOError:
             with open(filename, 'x') as f:
                 f.write('learning_rate: {}\n'.format(self.learning_rate))
@@ -59,3 +61,4 @@ class NetworkConfig:
                 f.write('{}\n'.format(len(self.dense_layer_sizes)))
                 for layer in self.dense_layer_sizes:
                     f.write('{}\n'.format(layer))
+                f.write('patience: {}'.format(self.patience))

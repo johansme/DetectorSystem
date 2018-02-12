@@ -13,7 +13,7 @@ FLAGS = flags.FLAGS
 # TODO Add regularisation of nodes, try LR instead of dense layers (binary)?
 class ClassifierNetwork:
 
-    def __init__(self, config_name):
+    def __init__(self, config_name, validation_freq):
         self.config = NetworkConfig.NetworkConfig()
         self.config.read_config_from_file(config_name)
 
@@ -35,9 +35,15 @@ class ClassifierNetwork:
 
         self.dense_layer_sizes = self.config.dense_layer_sizes
 
+        self.validation_frequency = validation_freq
+        self.stopping_patience = self.config.patience
+
         self.error_history = []
         self.validation_history = []
         self.global_training_step = 0
+
+        self.best_val_error = 100000
+        self.steps_since_last_improvement = 0
 
         self.saver = tf.train.Saver()
 
@@ -138,10 +144,25 @@ class ClassifierNetwork:
     def initialise_session_ex_vars(self):
         self.current_sess = tf.Session()
 
+    def do_early_stopping(self, step):
+        if step % self.validation_frequency == 0:
+            new_error = self.do_validation(self.validation_data, step)
+            if new_error < self.best_val_error:
+                self.best_val_error = new_error
+                self.steps_since_last_improvement = 0
+                self.best_val_path = self.saver.save(self.current_sess, 'temp/training_temp')
+            elif self.steps_since_last_improvement > self.stopping_patience:
+                self.load_model(self.current_sess, self.best_val_path)
+                return True
+            else:
+                self.steps_since_last_improvement += 1
+        return False
+
     def do_training(self, training_data, epochs):
         if self.current_sess is None:
             self.initialise_session()
         sess = self.current_sess
+        step = self.global_training_step
         for i in range(epochs):
             step = self.global_training_step + i
             error = 0
@@ -153,7 +174,11 @@ class ClassifierNetwork:
                 _, loss = sess.run([self.training_op, self.loss], feed_dict=feeder)
                 error += loss
             self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
-        self.global_training_step += epochs
+            stop = self.do_early_stopping(step)
+            if stop:
+                print('Training stopped at step {}'.format(step))
+                break
+        self.global_training_step = step
 
     def do_validation(self, validation_data, step):
         if self.current_sess is None:
@@ -167,6 +192,7 @@ class ClassifierNetwork:
             loss = self.current_sess.run([self.loss], feed_dict=feeder)
             error += loss
         self.validation_history.append((step, error/len(validation_data)))
+        return error
 
     def do_testing(self, test_data):
         if self.current_sess is None:
@@ -185,11 +211,15 @@ class ClassifierNetwork:
         print('Confusion matrix of the test data:\n{}'.format(confusion))
 
     def save_model(self, sess, filename):
-        save_path = self.saver.save(sess, 'temp/' + filename + '.ckpt')
+        save_path = self.saver.save(sess, 'temp/' + filename)
         print('Model saved to: {}'.format(save_path))
 
     def load_model(self, sess, save_path):
         self.saver.restore(sess, save_path)
+
+    def set_data(self, training_data, validation_data):
+        self.training_data = training_data
+        self.validation_data = validation_data
 
 
 def last_relevant_from_lstm(output, length):
