@@ -2,7 +2,6 @@ from gensim.models import KeyedVectors
 import os
 import preprocessor as p
 import tensorflow as tf
-import numpy as np
 import re
 
 
@@ -49,10 +48,3 @@ def preprocess_word_based(tweets, vocab_model):
         res = [vocab_model.word_vec(word) for word in words]
         batch.append(res)
     return batch
-
-
-def batch_to_3d_array(batch):
-    max_len = max(batch, key=lambda x: len(x))
-    data_dim = len(batch[0][0])
-    fin_batch = np.array([sample + [[0]*data_dim for _ in (max_len - len(sample))] for sample in batch])
-    return fin_batch
