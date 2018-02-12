@@ -1,14 +1,8 @@
-import tensorflow as tf
 import NetworkConfig
 import numpy as np
+import tensorflow as tf
+import Utils
 
-
-flags = tf.flags
-
-flags.DEFINE_boolean('bidirectional', False, 'Determines whether the LSTM is bidirectional or unidirectional')
-flags.DEFINE_boolean('training', True, 'Tells if training is to take place')
-
-FLAGS = flags.FLAGS
 
 # TODO Add regularisation of nodes, try LR instead of dense layers (binary)?
 class ClassifierNetwork:
@@ -50,6 +44,8 @@ class ClassifierNetwork:
         self.setup_network()
         self.setup_training()
 
+        self.is_training = True
+
         self.current_sess = None
 
     def setup_network(self):
@@ -57,6 +53,7 @@ class ClassifierNetwork:
         self.char_input = tf.placeholder(tf.int8, shape=[self.batch_size, None, self.char_dim], name='Char_input')
         self.word_input = tf.placeholder(tf.float32, shape=[self.batch_size, None, self.embedding_dim],
                                          name='Word_input')
+        self.dropout_placeholder = tf.placeholder(tf.float32, shape=1, name='keep_prob')
 
         self.target = tf.placeholder(tf.int8, shape=[None, self.output_size], name='Target')
 
@@ -103,12 +100,12 @@ class ClassifierNetwork:
 
     def get_lstm_cell(self, layer_size):
         cell = tf.contrib.rnn.LSTMCell(layer_size, activation=tf.nn.tanh)
-        if FLAGS.training and self.dropout_keep_prob < 1.0:
-            cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout_keep_prob)
+        if self.dropout_keep_prob < 1.0:
+            cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout_placeholder)
         return cell
 
     def setup_lstm(self, lstm_input, n_layers, layer_size, category, sequence_length):
-        if FLAGS.bidirectional:
+        if self.bidirectional:
             with tf.variable_scope(category + 'lstm'):
                 output, fw_state, bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                     [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
@@ -132,6 +129,7 @@ class ClassifierNetwork:
         state = self.fc_input
         for i in range(len(self.dense_layer_sizes)):
             state = tf.layers.dense(state, self.dense_layer_sizes[i], activation=tf.nn.relu)
+            state = tf.layers.dropout(state, rate=1 - self.dropout_placeholder, training=self.dropout_placeholder < 1.0)
         output = tf.layers.dense(state, self.output_size, name='unmodified_output')  # TODO Should there be activation?
         return output
 
@@ -164,13 +162,15 @@ class ClassifierNetwork:
         sess = self.current_sess
         step = self.global_training_step
         for i in range(epochs):
+            self.is_training = True
             step = self.global_training_step + i
             error = 0
             for batch in training_data:
                 char_input = [c[0] for c in batch]
                 word_input = [c[1] for c in batch]
                 targets = [c[2] for c in batch]
-                feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
+                feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
+                          self.dropout_placeholder: self.dropout_keep_prob}
                 _, loss = sess.run([self.training_op, self.loss], feed_dict=feeder)
                 error += loss
             self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
@@ -179,16 +179,19 @@ class ClassifierNetwork:
                 print('Training stopped at step {}'.format(step))
                 break
         self.global_training_step = step
+        Utils.plot_training_history(self.error_history, self.validation_history)
 
     def do_validation(self, validation_data, step):
         if self.current_sess is None:
             self.initialise_session()
+        self.is_training = False
         error = 0
         for batch in validation_data:
             char_input = [c[0] for c in batch]
             word_input = [c[1] for c in batch]
             targets = [c[2] for c in batch]
-            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
+            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
+                      self.dropout_placeholder: 1.0}
             loss = self.current_sess.run([self.loss], feed_dict=feeder)
             error += loss
         self.validation_history.append((step, error/len(validation_data)))
@@ -197,12 +200,14 @@ class ClassifierNetwork:
     def do_testing(self, test_data):
         if self.current_sess is None:
             self.initialise_session()
+        self.is_training = False
         confusion = np.zeros([self.output_size, self.output_size])
         for batch in test_data:
             char_input = [c[0] for c in batch]
             word_input = [c[1] for c in batch]
             targets = [c[2] for c in batch]
-            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
+            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
+                      self.dropout_placeholder: 1.0}
             predictions = self.current_sess.run([self.predictions], feed_dict=feeder)
             classes = predictions['classes']
             targets = tf.argmax(targets, axis=1)
