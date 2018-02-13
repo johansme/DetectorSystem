@@ -23,6 +23,12 @@ def create_batches(data, mini_batch_size):
     return batches
 
 
+def separate_data_from_labels(batch):
+    data = [sample[0] for sample in batch]
+    labels = [sample[1] for sample in batch]
+    return data, labels
+
+
 def batch_to_3d_array(batch):
     max_len = max(batch, key=lambda x: len(x))
     data_dim = len(batch[0][0])
