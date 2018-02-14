@@ -39,10 +39,10 @@ class ClassifierNetwork:
         self.best_val_error = 100000
         self.steps_since_last_improvement = 0
 
-        self.saver = tf.train.Saver()
-
         self.setup_network()
         self.setup_training()
+
+        self.saver = tf.train.Saver()
 
         self.is_training = True
 
@@ -50,17 +50,17 @@ class ClassifierNetwork:
 
     def setup_network(self):
         tf.reset_default_graph()
-        self.char_input = tf.placeholder(tf.int8, shape=[self.batch_size, None, self.char_dim], name='Char_input')
+        self.char_input = tf.placeholder(tf.float32, shape=[self.batch_size, None, self.char_dim], name='Char_input')
         self.word_input = tf.placeholder(tf.float32, shape=[self.batch_size, None, self.embedding_dim],
                                          name='Word_input')
-        self.dropout_placeholder = tf.placeholder(tf.float32, shape=1, name='keep_prob')
+        self.dropout_placeholder = tf.placeholder(tf.float32, shape=[], name='keep_prob')
 
         self.target = tf.placeholder(tf.int8, shape=[None, self.output_size], name='Target')
 
         conv_output = self.setup_cnn()
         char_lengths = seq_len(conv_output)
         char_output, char_lstm_state = self.setup_lstm(conv_output, self.num_char_lstm_layers,
-                                                       tf.shape(conv_output)[2], 'char_', char_lengths)
+                                                       conv_output.shape[2].value, 'char_', char_lengths)
         relevant_char_output = last_relevant_from_lstm(char_output, char_lengths)
 
         word_lengths = seq_len(self.word_input)
@@ -75,12 +75,12 @@ class ClassifierNetwork:
                             'probabilities': tf.nn.softmax(self.logits, name='softmaxed_output')}
 
     def setup_training(self):
-        self.loss = tf.losses.softmax_cross_entropy(self.target, self.logits)
+        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.target, logits=self.logits)
         self.optimiser = tf.train.AdamOptimizer(learning_rate=self.learning_rate)  # TODO Fill in hyperparameters
         self.training_op = self.optimiser.minimize(self.loss, global_step=tf.train.get_global_step(), name='train_op')
 
     def generate_cnn_layer(self, layer_input, num_filters, kernel_len, padding='valid', name='conv'):
-        with tf.variable_scope(name, reuse=True):
+        with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             con = tf.layers.conv1d(layer_input, num_filters, kernel_len, padding=padding,
                                    activation=tf.nn.relu, name=name)
         return con
@@ -117,12 +117,13 @@ class ClassifierNetwork:
                 state = (fw_state, bw_state)
         else:
             cells = tf.contrib.rnn.MultiRNNCell([self.get_lstm_cell(layer_size) for _ in range(n_layers)])
+            print(lstm_input.shape)
             with tf.variable_scope(category + 'lstm'):
                 output, state = tf.nn.dynamic_rnn(
                     cells,
                     lstm_input,
                     dtype=tf.float32,
-                    sequence_length=seq_len(lstm_input))
+                    sequence_length=sequence_length)
         return output, state
 
     def setup_dense_layers(self):
