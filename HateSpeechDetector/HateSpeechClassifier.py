@@ -1,5 +1,6 @@
 import NetworkConfig
 import numpy as np
+from random import shuffle
 import tensorflow as tf
 import Utils
 
@@ -15,7 +16,7 @@ class ClassifierNetwork:
         self.dropout_keep_prob = self.config.dropout_keep_prob
         self.learning_rate = self.config.learning_rate
 
-        self.char_dim = 30
+        self.char_dim = 31
         self.embedding_dim = 300
         self.output_size = 3
         self.batch_size = self.config.batch_size
@@ -50,10 +51,10 @@ class ClassifierNetwork:
 
     def setup_network(self):
         tf.reset_default_graph()
-        self.char_input = tf.placeholder(tf.float32, shape=[self.batch_size, None, self.char_dim], name='Char_input')
-        self.word_input = tf.placeholder(tf.float32, shape=[self.batch_size, None, self.embedding_dim],
-                                         name='Word_input')
-        self.dropout_placeholder = tf.placeholder(tf.float32, shape=[], name='keep_prob')
+        self.char_input = tf.placeholder(tf.float32, shape=[None, None, self.char_dim], name='Char_input')
+        self.word_input = tf.placeholder(tf.float32, shape=[None, None, self.embedding_dim], name='Word_input')
+
+        self.dropout_placeholder = tf.placeholder_with_default(1.0, shape=[], name='keep_prob')
 
         self.target = tf.placeholder(tf.int8, shape=[None, self.output_size], name='Target')
 
@@ -117,7 +118,6 @@ class ClassifierNetwork:
                 state = (fw_state, bw_state)
         else:
             cells = tf.contrib.rnn.MultiRNNCell([self.get_lstm_cell(layer_size) for _ in range(n_layers)])
-            print(lstm_input.shape)
             with tf.variable_scope(category + 'lstm'):
                 output, state = tf.nn.dynamic_rnn(
                     cells,
@@ -135,7 +135,7 @@ class ClassifierNetwork:
         return output
 
     def initialise_session(self):
-        init_op = tf.initialize_all_variables()
+        init_op = tf.global_variables_initializer()
         sess = tf.Session()
         sess.run(init_op)
         self.current_sess = sess
@@ -167,18 +167,19 @@ class ClassifierNetwork:
             step = self.global_training_step + i
             error = 0
             for batch in training_data:
-                char_input = [c[0] for c in batch]
-                word_input = [c[1] for c in batch]
-                targets = [c[2] for c in batch]
+                char_input = batch[0]
+                word_input = batch[1]
+                targets = batch[2]
                 feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
                           self.dropout_placeholder: self.dropout_keep_prob}
                 _, loss = sess.run([self.training_op, self.loss], feed_dict=feeder)
-                error += loss
+                error += sum(loss)
             self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
             stop = self.do_early_stopping(step)
             if stop:
                 print('Training stopped at step {}'.format(step))
                 break
+            shuffle(training_data)
         self.global_training_step = step
         Utils.plot_training_history(self.error_history, self.validation_history)
 
@@ -188,13 +189,12 @@ class ClassifierNetwork:
         self.is_training = False
         error = 0
         for batch in validation_data:
-            char_input = [c[0] for c in batch]
-            word_input = [c[1] for c in batch]
-            targets = [c[2] for c in batch]
-            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
-                      self.dropout_placeholder: 1.0}
+            char_input = batch[0]
+            word_input = batch[1]
+            targets = batch[2]
+            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
             loss = self.current_sess.run([self.loss], feed_dict=feeder)
-            error += loss
+            error += sum(loss[0])
         self.validation_history.append((step, error/len(validation_data)))
         return error
 
@@ -204,11 +204,10 @@ class ClassifierNetwork:
         self.is_training = False
         confusion = np.zeros([self.output_size, self.output_size])
         for batch in test_data:
-            char_input = [c[0] for c in batch]
-            word_input = [c[1] for c in batch]
-            targets = [c[2] for c in batch]
-            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
-                      self.dropout_placeholder: 1.0}
+            char_input = batch[0]
+            word_input = batch[1]
+            targets = batch[2]
+            feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
             predictions = self.current_sess.run([self.predictions], feed_dict=feeder)
             classes = predictions['classes']
             targets = tf.argmax(targets, axis=1)
@@ -229,9 +228,10 @@ class ClassifierNetwork:
 
 
 def last_relevant_from_lstm(output, length):
+    length = increment_zeros(length)  # Necessary to avoid errors for zero-length cases
     batch_size = tf.shape(output)[0]
     max_len = tf.shape(output)[1]
-    out_size = int(output.get_shape()[2])
+    out_size = output.get_shape()[2].value
     ind = tf.range(0, batch_size) * max_len + (length - 1)
     flat = tf.reshape(output, [-1, out_size])
     return tf.gather(flat, ind)
@@ -241,3 +241,8 @@ def seq_len(sequence):
     used = tf.sign(tf.reduce_max(sequence, 2))
     length = tf.reduce_sum(used, 1)
     return tf.cast(length, tf.int32)
+
+
+def increment_zeros(length_tensor):
+    ones = tf.ones_like(length_tensor)
+    return tf.where(tf.cast(length_tensor, tf.bool), x=length_tensor, y=ones)
