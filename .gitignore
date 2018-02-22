@@ -104,3 +104,4 @@ ENV/
 *.csv
 /Data/Word2vec/*
 .idea/
+temp/
