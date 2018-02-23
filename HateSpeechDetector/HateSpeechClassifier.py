@@ -157,7 +157,7 @@ class ClassifierNetwork:
                 self.steps_since_last_improvement += 1
         return False
 
-    def do_training(self, training_data, epochs):
+    def do_training(self, epochs):
         if self.current_sess is None:
             self.initialise_session()
         sess = self.current_sess
@@ -166,7 +166,7 @@ class ClassifierNetwork:
             self.is_training = True
             step = self.global_training_step + i
             error = 0
-            for batch in training_data:
+            for batch in self.training_data:
                 char_input = batch[0]
                 word_input = batch[1]
                 targets = batch[2]
@@ -174,12 +174,12 @@ class ClassifierNetwork:
                           self.dropout_placeholder: self.dropout_keep_prob}
                 _, loss = sess.run([self.training_op, self.loss], feed_dict=feeder)
                 error += sum(loss)/len(batch)
-            self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
+            self.error_history.append((step, error/len(self.training_data)))  # len(training_data) = num mini batches
             stop = self.do_early_stopping(step)
             if stop:
                 print('Training stopped at step {}'.format(step))
                 break
-            shuffle(training_data)
+            shuffle(self.training_data)
         self.global_training_step = step
         Utils.plot_training_history(self.error_history, self.validation_history)
 
