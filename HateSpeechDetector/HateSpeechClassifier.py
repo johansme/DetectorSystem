@@ -173,7 +173,7 @@ class ClassifierNetwork:
                 feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets,
                           self.dropout_placeholder: self.dropout_keep_prob}
                 _, loss = sess.run([self.training_op, self.loss], feed_dict=feeder)
-                error += sum(loss)
+                error += sum(loss)/len(batch)
             self.error_history.append((step, error/len(training_data)))  # len(training_data) = num mini batches
             stop = self.do_early_stopping(step)
             if stop:
@@ -194,7 +194,7 @@ class ClassifierNetwork:
             targets = batch[2]
             feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
             loss = self.current_sess.run([self.loss], feed_dict=feeder)
-            error += sum(loss[0])
+            error += sum(loss[0])/len(batch)
         self.validation_history.append((step, error/len(validation_data)))
         return error
 
