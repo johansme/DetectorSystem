@@ -102,6 +102,6 @@ ENV/
 
 *.txt
 *.csv
-/Data/Word2vec/*
+/Data/word2vec/*
 .idea/
 temp/
