@@ -8,9 +8,8 @@ import Utils
 # TODO Add regularisation of nodes, try LR instead of dense layers (binary)?
 class ClassifierNetwork:
 
-    def __init__(self, config_name, validation_freq):
-        self.config = NetworkConfig.NetworkConfig()
-        self.config.read_config_from_file(config_name)
+    def __init__(self, config, validation_freq):
+        self.config = config
 
         self.bidirectional = self.config.bidirectional
         self.dropout_keep_prob = self.config.dropout_keep_prob
@@ -209,7 +208,7 @@ class ClassifierNetwork:
             targets = batch[2]
             feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
             predictions = self.current_sess.run([self.predictions], feed_dict=feeder)
-            classes = predictions['classes']
+            classes = predictions[0]['classes']
             targets = tf.argmax(targets, axis=1)
             for i in range(len(targets)):
                 confusion[classes[i]][targets[i]] += 1
