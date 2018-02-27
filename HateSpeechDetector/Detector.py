@@ -2,13 +2,16 @@ import InputHandler
 import HateSpeechClassifier
 import matplotlib.pyplot as plt
 import NetworkConfig
+from random import shuffle
 import Utils
 
 
 def test_classifier():
-    classifier = HateSpeechClassifier.ClassifierNetwork('TestConfig.txt', 20)
+    config = NetworkConfig.NetworkConfig()
+    config.read_config_from_file('TestConfig.txt')
+    classifier = HateSpeechClassifier.ClassifierNetwork(config, 20)
     data = Utils.read_tweets_from_folds(1)
-    data = Utils.create_batches(data, classifier.batch_size)
+    data = Utils.create_batches(data, config.batch_size)
     word2vec = InputHandler.generate_word2vec_model()
     full_data = []
     for batch in data:
@@ -23,6 +26,7 @@ def test_classifier():
     word2vec = None
     classifier.set_data(training_data=full_data[:-2], validation_data=full_data[-2:])
     classifier.do_training(21)
+    classifier.do_testing(test_data=full_data)
 
 
 def do_10fold_cross_validation(config_name):
@@ -53,14 +57,18 @@ def do_10fold_cross_validation(config_name):
     plt.show(block=True)
 
 
-def run_cross_validation_round(training_folds, validation_fold, config):
+def run_cross_validation_round(training_folds, test_fold, config):
     classifier = HateSpeechClassifier.ClassifierNetwork(config, 5)
     training_data = []
     for fold in training_folds:
         training_data.extend(fold)
-    classifier.set_data(training_data=training_data, validation_data=validation_fold)
-    classifier.do_training(1000)
-    classifier.do_testing(test_data=validation_fold)
+    shuffle(training_data)
+    val_ind = len(training_data) - len(training_data)//5
+    validation_data = training_data[val_ind:]
+    training_data = training_data[:val_ind]
+    classifier.set_data(training_data=training_data, validation_data=validation_data)
+    classifier.do_training(200)
+    classifier.do_testing(test_data=test_fold)
 
 
 do_10fold_cross_validation('TestConfig.txt')
