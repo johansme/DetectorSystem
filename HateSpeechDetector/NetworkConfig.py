@@ -15,6 +15,7 @@ class NetworkConfig:
                 for i in range(num_conv_filters):
                     self.conv_filter_lengths.append(int(f.readline()))
                 self.num_char_lstm_layers = int(f.readline().split()[1])
+                self.char_lstm_layer_size = int(f.readline().split()[1])
                 self.num_word_lstm_layers = int(f.readline().split()[1])
                 self.word_lstm_layer_size = int(f.readline().split()[1])
                 num_dense_layers = int(f.readline())
@@ -38,6 +39,7 @@ class NetworkConfig:
                 for length in self.conv_filter_lengths:
                     f.write('{}\n'.format(length))
                 f.write('num_char_lstm_layers: {}\n'.format(self.num_char_lstm_layers))
+                f.write('char_lstm_layer_size: {}\n'.format(self.char_lstm_layer_size))
                 f.write('num_word_lstm_layers: {}\n'.format(self.num_word_lstm_layers))
                 f.write('word_lstm_layer_size: {}\n'.format(self.word_lstm_layer_size))
                 f.write('{}\n'.format(len(self.dense_layer_sizes)))
@@ -56,6 +58,7 @@ class NetworkConfig:
                 for length in self.conv_filter_lengths:
                     f.write('{}\n'.format(length))
                 f.write('num_char_lstm_layers: {}\n'.format(self.num_char_lstm_layers))
+                f.write('char_lstm_layer_size: {}\n'.format(self.char_lstm_layer_size))
                 f.write('num_word_lstm_layers: {}\n'.format(self.num_word_lstm_layers))
                 f.write('word_lstm_layer_size: {}\n'.format(self.word_lstm_layer_size))
                 f.write('{}\n'.format(len(self.dense_layer_sizes)))

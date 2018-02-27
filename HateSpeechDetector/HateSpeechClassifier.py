@@ -1,4 +1,3 @@
-import NetworkConfig
 import numpy as np
 from random import shuffle
 import tensorflow as tf
@@ -23,6 +22,7 @@ class ClassifierNetwork:
         self.filters_per_layer = self.config.conv_filters_per_layer
         self.num_con_layers = len(self.filters_per_layer)
         self.num_char_lstm_layers = self.config.num_char_lstm_layers
+        self.char_lstm_layer_size = self.config.char_lstm_layer_size
 
         self.word_lstm_layer_size = self.config.word_lstm_layer_size
         self.num_word_lstm_layers = self.config.num_word_lstm_layers
@@ -60,7 +60,7 @@ class ClassifierNetwork:
         conv_output = self.setup_cnn()
         char_lengths = seq_len(conv_output)
         char_output, char_lstm_state = self.setup_lstm(conv_output, self.num_char_lstm_layers,
-                                                       conv_output.shape[2].value, 'char_', char_lengths)
+                                                       self.char_lstm_layer_size, 'char_', char_lengths)
         relevant_char_output = last_relevant_from_lstm(char_output, char_lengths)
 
         word_lengths = seq_len(self.word_input)
@@ -76,7 +76,7 @@ class ClassifierNetwork:
 
     def setup_training(self):
         self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.target, logits=self.logits)
-        self.optimiser = tf.train.AdamOptimizer(learning_rate=self.learning_rate)  # TODO Fill in hyperparameters
+        self.optimiser = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         self.training_op = self.optimiser.minimize(self.loss, global_step=tf.train.get_global_step(), name='train_op')
 
     def generate_cnn_layer(self, layer_input, num_filters, kernel_len, padding='valid', name='conv'):
@@ -201,18 +201,19 @@ class ClassifierNetwork:
         if self.current_sess is None:
             self.initialise_session()
         self.is_training = False
-        confusion = np.zeros([self.output_size, self.output_size])
+        confusion = np.zeros([self.output_size, self.output_size], dtype=int)
         for batch in test_data:
             char_input = batch[0]
             word_input = batch[1]
             targets = batch[2]
             feeder = {self.char_input: char_input, self.word_input: word_input, self.target: targets}
             predictions = self.current_sess.run([self.predictions], feed_dict=feeder)
-            classes = predictions[0]['classes']
-            targets = tf.argmax(targets, axis=1)
+            classes = predictions[0]['classes']  # run returns a singleton list, hence element 0
+            with self.current_sess.as_default():
+                targets = tf.argmax(targets, axis=1).eval()
             for i in range(len(targets)):
                 confusion[classes[i]][targets[i]] += 1
-        print('Confusion matrix of the test data:\n{}'.format(confusion))
+        print('Confusion matrix of the test data:\n\tTargets:\nNeutral\tSexist\tRacist\n{}'.format(confusion))
 
     def save_model(self, sess, filename):
         save_path = self.saver.save(sess, 'temp/' + filename)
