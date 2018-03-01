@@ -13,6 +13,7 @@ class ClassifierNetwork:
         self.bidirectional = self.config.bidirectional
         self.dropout_keep_prob = self.config.dropout_keep_prob
         self.learning_rate = self.config.learning_rate
+        self.l2_coeff = self.config.l2_coeff
 
         self.char_dim = 31
         self.embedding_dim = 300
@@ -75,9 +76,12 @@ class ClassifierNetwork:
                             'probabilities': tf.nn.softmax(self.logits, name='softmaxed_output')}
 
     def setup_training(self):
+        var = tf.trainable_variables()
+        self.l2_loss = self.l2_coeff * tf.add_n([tf.nn.l2_loss(v) for v in var if 'bias' not in v.name])
         self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.target, logits=self.logits)
         self.optimiser = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        self.training_op = self.optimiser.minimize(self.loss, global_step=tf.train.get_global_step(), name='train_op')
+        self.training_op = self.optimiser.minimize(self.loss + self.l2_loss, global_step=tf.train.get_global_step(),
+                                                   name='train_op')
 
     def generate_cnn_layer(self, layer_input, num_filters, kernel_len, padding='valid', name='conv'):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
@@ -101,7 +105,8 @@ class ClassifierNetwork:
     def get_lstm_cell(self, layer_size):
         cell = tf.contrib.rnn.LSTMCell(layer_size, activation=tf.nn.tanh)
         if self.dropout_keep_prob < 1.0:
-            cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout_placeholder)
+            cell = tf.contrib.rnn.DropoutWrapper(cell, input_keep_prob=self.dropout_placeholder,
+                   output_keep_prob=self.dropout_placeholder)
         return cell
 
     def setup_lstm(self, lstm_input, n_layers, layer_size, category, sequence_length):

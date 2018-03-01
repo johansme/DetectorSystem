@@ -6,6 +6,7 @@ class NetworkConfig:
                 self.learning_rate = float(f.readline().split()[1])
                 self.bidirectional = (f.readline().split()[1] == 'True')
                 self.dropout_keep_prob = float(f.readline().split()[1])
+                self.l2_coeff = float(f.readline().split()[1])
                 self.batch_size = int(f.readline().split()[1])
                 num_conv_filters = int(f.readline())
                 self.conv_filters_per_layer = []
@@ -32,6 +33,7 @@ class NetworkConfig:
                 f.write('learning_rate: {}\n'.format(self.learning_rate))
                 f.write('bidirectional: {}\n'.format(self.bidirectional))
                 f.write('dropout_keep_prob: {}\n'.format(self.dropout_keep_prob))
+                f.write('l2_coeff: {}\n'.format(self.l2_coeff))
                 f.write('batch_size: {}\n'.format(self.batch_size))
                 f.write('{}\n'.format(len(self.conv_filter_lengths)))
                 for filters in self.conv_filters_per_layer:
@@ -51,6 +53,7 @@ class NetworkConfig:
                 f.write('learning_rate: {}\n'.format(self.learning_rate))
                 f.write('bidirectional: {}\n'.format(self.bidirectional))
                 f.write('dropout_keep_prob: {}\n'.format(self.dropout_keep_prob))
+                f.write('l2_coeff: {}\n'.format(self.l2_coeff))
                 f.write('batch_size: {}\n'.format(self.batch_size))
                 f.write('{}\n'.format(len(self.conv_filter_lengths)))
                 for filters in self.conv_filters_per_layer:
