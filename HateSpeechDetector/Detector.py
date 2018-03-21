@@ -58,17 +58,14 @@ def do_10fold_cross_validation(config_name):
 
 
 def run_cross_validation_round(training_folds, test_fold, config):
-    classifier = HateSpeechClassifier.ClassifierNetwork(config, 5)
+    classifier = HateSpeechClassifier.ClassifierNetwork(config, 3)
     training_data = []
     for fold in training_folds:
         training_data.extend(fold)
     shuffle(training_data)
-    val_ind = len(training_data) - len(training_data)//5
-    validation_data = training_data[val_ind:]
-    training_data = training_data[:val_ind]
-    classifier.set_data(training_data=training_data, validation_data=validation_data)
+    classifier.set_data(training_data=training_data, validation_data=test_fold)
     classifier.do_training(200)
     classifier.do_testing(test_data=test_fold)
 
 
-do_10fold_cross_validation('TestConfig.txt')
+do_10fold_cross_validation(input('Name of config: '))

@@ -49,7 +49,7 @@ def plot_training_history(error_hist, validation_hist=(), xtitle="Epoch", ytitle
         simple_plot([p[1] for p in validation_hist], [p[0] for p in validation_hist],
                     xtitle=xtitle, ytitle=ytitle, title=title)
     plt.ioff()
-    plt.show()
+    plt.show(block=False)
 
 
 def simple_plot(yvals, xvals=None, xtitle='X', ytitle='Y', title='Y = F(X)'):
