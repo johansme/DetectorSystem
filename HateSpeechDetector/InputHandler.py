@@ -44,10 +44,10 @@ def preprocess_word_based(tweets, vocab_model):
     pattern = re.compile('[^0-9a-z\s]+', re.UNICODE)
     for tweet in tweets:
         # Should I remove hashtags completely, or just remove the symbol?
-        clean = p.clean(tweet)
+        clean = p.tokenize(tweet)
         clean = split_hashtags(clean)
         clean = clean.lower()
-        clean = pattern.sub('', clean)
+        clean = pattern.sub(' ', clean)
         words = clean.split()
         res = []
         for word in words:
