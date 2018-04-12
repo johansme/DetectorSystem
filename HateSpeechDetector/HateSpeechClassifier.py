@@ -155,7 +155,6 @@ class ClassifierNetwork:
                 self.steps_since_last_improvement = 0
                 self.best_val_path = self.saver.save(self.current_sess, 'temp/training_temp')
             elif self.steps_since_last_improvement > self.stopping_patience:
-                self.load_model(self.current_sess, self.best_val_path)
                 return True
             else:
                 self.steps_since_last_improvement += 1
@@ -184,6 +183,7 @@ class ClassifierNetwork:
                 print('Training stopped at step {}'.format(step))
                 break
             shuffle(self.training_data)
+        self.load_model(self.current_sess, self.best_val_path)
         self.global_training_step = step
         Utils.plot_training_history(self.error_history, self.validation_history)
 

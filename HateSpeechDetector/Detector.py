@@ -64,7 +64,7 @@ def run_cross_validation_round(training_folds, test_fold, config):
         training_data.extend(fold)
     shuffle(training_data)
     classifier.set_data(training_data=training_data, validation_data=test_fold)
-    classifier.do_training(200)
+    classifier.do_training(100)
     classifier.do_testing(test_data=test_fold)
 
 
