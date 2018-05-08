@@ -16,7 +16,7 @@ class ClassifierNetwork:
         self.l2_coeff = self.config.l2_coeff
 
         self.char_dim = 31
-        self.embedding_dim = 300
+        self.embedding_dim = 200 if self.config.use_glove else 300
         self.output_size = 3
         self.batch_size = self.config.batch_size
         self.filter_lengths = self.config.conv_filter_lengths
@@ -62,14 +62,19 @@ class ClassifierNetwork:
         char_lengths = seq_len(conv_output)
         char_output, char_lstm_state = self.setup_lstm(conv_output, self.num_char_lstm_layers,
                                                        self.char_lstm_layer_size, 'char_', char_lengths)
-        relevant_char_output = last_relevant_from_lstm(char_output, char_lengths)
+        relevant_char_output = last_relevant_from_lstm(char_output, char_lengths) if char_output is not None else None
 
         word_lengths = seq_len(self.word_input)
         word_output, lstm_state = self.setup_lstm(self.word_input, self.num_word_lstm_layers,
                                                   self.word_lstm_layer_size, 'word_', word_lengths)
-        relevant_word_output = last_relevant_from_lstm(word_output, word_lengths)
+        relevant_word_output = last_relevant_from_lstm(word_output, word_lengths) if word_output is not None else None
 
-        self.fc_input = tf.concat([relevant_char_output, relevant_word_output], 1, name='fully_connected_input')
+        if (char_output is not None and word_output is not None):
+            self.fc_input = tf.concat([relevant_char_output, relevant_word_output], 1, name='fully_connected_input')
+        else:
+            if char_output is None and word_output is None:
+                raise ValueError('The system requires at least one LSTM layer')
+            self.fc_input = relevant_char_output if word_output is None else relevant_word_output
 
         self.logits = self.setup_dense_layers()
         self.predictions = {'classes': tf.argmax(self.logits, axis=1),
@@ -110,24 +115,28 @@ class ClassifierNetwork:
         return cell
 
     def setup_lstm(self, lstm_input, n_layers, layer_size, category, sequence_length):
-        if self.bidirectional:
-            with tf.variable_scope(category + 'lstm'):
-                output, fw_state, bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
-                    [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
-                    [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
-                    lstm_input,
-                    dtype=tf.float32,
-                    sequence_length=sequence_length
-                )
-                state = (fw_state, bw_state)
+        if n_layers > 0:
+            if self.bidirectional:
+                with tf.variable_scope(category + 'lstm'):
+                    output, fw_state, bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
+                        [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
+                        [self.get_lstm_cell(layer_size) for _ in range(n_layers)],
+                        lstm_input,
+                        dtype=tf.float32,
+                        sequence_length=sequence_length
+                    )
+                    state = (fw_state, bw_state)
+            else:
+                cells = tf.contrib.rnn.MultiRNNCell([self.get_lstm_cell(layer_size) for _ in range(n_layers)])
+                with tf.variable_scope(category + 'lstm'):
+                    output, state = tf.nn.dynamic_rnn(
+                        cells,
+                        lstm_input,
+                        dtype=tf.float32,
+                        sequence_length=sequence_length)
         else:
-            cells = tf.contrib.rnn.MultiRNNCell([self.get_lstm_cell(layer_size) for _ in range(n_layers)])
-            with tf.variable_scope(category + 'lstm'):
-                output, state = tf.nn.dynamic_rnn(
-                    cells,
-                    lstm_input,
-                    dtype=tf.float32,
-                    sequence_length=sequence_length)
+            output = None
+            state = None
         return output, state
 
     def setup_dense_layers(self):

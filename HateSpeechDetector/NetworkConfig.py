@@ -24,6 +24,7 @@ class NetworkConfig:
                 for i in range(num_dense_layers):
                     self.dense_layer_sizes.append(int(f.readline()))
                 self.patience = int(f.readline().split()[1])
+                self.use_glove = (f.readline().split()[1] == 'True')
         except IOError:
             print('No such config file: {}'.format(filename))
 
@@ -47,7 +48,8 @@ class NetworkConfig:
                 f.write('{}\n'.format(len(self.dense_layer_sizes)))
                 for layer in self.dense_layer_sizes:
                     f.write('{}\n'.format(layer))
-                f.write('patience: {}'.format(self.patience))
+                f.write('patience: {}\n'.format(self.patience))
+                f.write('use_glove: {}'.format(self.use_glove))
         except IOError:
             with open(filename, 'x') as f:
                 f.write('learning_rate: {}\n'.format(self.learning_rate))
@@ -67,4 +69,5 @@ class NetworkConfig:
                 f.write('{}\n'.format(len(self.dense_layer_sizes)))
                 for layer in self.dense_layer_sizes:
                     f.write('{}\n'.format(layer))
-                f.write('patience: {}'.format(self.patience))
+                f.write('patience: {}\n'.format(self.patience))
+                f.write('use_glove: {}'.format(self.use_glove))

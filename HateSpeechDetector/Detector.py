@@ -8,11 +8,11 @@ import Utils
 
 def test_classifier():
     config = NetworkConfig.NetworkConfig()
-    config.read_config_from_file('TestConfig.txt')
+    config.read_config_from_file('DefaultConfig.txt')
     classifier = HateSpeechClassifier.ClassifierNetwork(config, 20)
     data = Utils.read_tweets_from_folds(1)
     data = Utils.create_batches(data, config.batch_size)
-    word2vec = InputHandler.generate_word2vec_model()
+    word2vec = InputHandler.generate_word2vec_model(config.use_glove)
     full_data = []
     for batch in data:
         data, labels = Utils.separate_data_from_labels(batch)
@@ -37,7 +37,7 @@ def do_10fold_cross_validation(config_name):
         fold = Utils.read_tweets_from_folds(i)
         fold = Utils.create_batches(fold, config.batch_size)
         folds.append(fold)
-    word2vec = InputHandler.generate_word2vec_model()
+    word2vec = InputHandler.generate_word2vec_model(config.use_glove)
     for i, fold in enumerate(folds):
         fold_batches = []
         for batch in fold:

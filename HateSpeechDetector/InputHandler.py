@@ -11,13 +11,20 @@ alphabet = {'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7, 'i':
             'z': 25, ' ': 26, '#': 27, '@': 28, '0': 29, '1': 29, '2': 29, '3': 29, '4': 29, '5': 29, '6': 29, '7': 29,
             '8': 29, '9': 29}
 
-unknown_vector = np.random.uniform(-.5, .5, 300)
+unknown_vector = []
 
 
-def generate_word2vec_model():
+def generate_word2vec_model(use_glove=False):
+    global unknown_vector
+    if use_glove:
+        path = '../Data/glove/glove.twitter.27B.200d.w2vformat.txt'
+        unknown_vector = np.random.uniform(-.5, .5, 200)
+    else:
+        path = '../Data/word2vec/GoogleNews-vectors-negative300.bin'
+        unknown_vector = np.random.uniform(-.5, .5, 300)
     file_dir = os.path.dirname(os.path.realpath('__file__'))
-    mod_path = os.path.join(file_dir, '../Data/word2vec/GoogleNews-vectors-negative300.bin')
-    model = KeyedVectors.load_word2vec_format(mod_path, binary=True)
+    mod_path = os.path.join(file_dir, path)
+    model = KeyedVectors.load_word2vec_format(mod_path, binary=(not use_glove))
     return model
 
 
