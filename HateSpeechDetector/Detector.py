@@ -6,29 +6,6 @@ from random import shuffle
 import Utils
 
 
-def test_classifier():
-    config = NetworkConfig.NetworkConfig()
-    config.read_config_from_file('DefaultConfig.txt')
-    classifier = HateSpeechClassifier.ClassifierNetwork(config, 20)
-    data = Utils.read_tweets_from_folds(1)
-    data = Utils.create_batches(data, config.batch_size)
-    word2vec = InputHandler.generate_word2vec_model(config.use_glove)
-    full_data = []
-    for batch in data:
-        data, labels = Utils.separate_data_from_labels(batch)
-        word_input = InputHandler.preprocess_word_based(data, word2vec)
-        word_input = Utils.batch_to_3d_array(word_input)
-        char_input = InputHandler.preprocess_character_based(data)
-        char_input = Utils.batch_to_3d_array(char_input)
-        for i, lab in enumerate(labels):
-            labels[i] = Utils.int_to_one_hot(lab, 3)
-        full_data.append([char_input, word_input, labels])
-    word2vec = None
-    classifier.set_data(training_data=full_data[:-2], validation_data=full_data[-2:])
-    classifier.do_training(21)
-    classifier.do_testing(test_data=full_data)
-
-
 def do_10fold_cross_validation(config_name):
     config = NetworkConfig.NetworkConfig()
     config.read_config_from_file(config_name)

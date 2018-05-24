@@ -4,7 +4,6 @@ import tensorflow as tf
 import Utils
 
 
-# TODO Add regularisation of nodes, try LR instead of dense layers (binary)?
 class ClassifierNetwork:
 
     def __init__(self, config, validation_freq):
@@ -44,8 +43,6 @@ class ClassifierNetwork:
         self.setup_training()
 
         self.saver = tf.train.Saver()
-
-        self.is_training = True
 
         self.current_sess = None
 
@@ -144,7 +141,7 @@ class ClassifierNetwork:
         for i in range(len(self.dense_layer_sizes)):
             state = tf.layers.dense(state, self.dense_layer_sizes[i], activation=tf.nn.relu)
             state = tf.layers.dropout(state, rate=1 - self.dropout_placeholder, training=self.dropout_placeholder < 1.0)
-        output = tf.layers.dense(state, self.output_size, name='unmodified_output')  # TODO Should there be activation?
+        output = tf.layers.dense(state, self.output_size, name='unmodified_output')
         return output
 
     def initialise_session(self):
@@ -175,7 +172,6 @@ class ClassifierNetwork:
         sess = self.current_sess
         step = self.global_training_step
         for i in range(epochs):
-            self.is_training = True
             step = self.global_training_step + i
             error = 0
             for batch in self.training_data:
@@ -199,7 +195,6 @@ class ClassifierNetwork:
     def do_validation(self, validation_data, step):
         if self.current_sess is None:
             self.initialise_session()
-        self.is_training = False
         error = 0
         for batch in validation_data:
             char_input = batch[0]
@@ -214,7 +209,6 @@ class ClassifierNetwork:
     def do_testing(self, test_data):
         if self.current_sess is None:
             self.initialise_session()
-        self.is_training = False
         confusion = np.zeros([self.output_size, self.output_size], dtype=int)
         for batch in test_data:
             char_input = batch[0]
